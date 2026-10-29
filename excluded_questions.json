@@ -1,0 +1,20 @@
+[
+  {
+    "subject": "electrotehnica",
+    "row": 25,
+    "question": "Care dintre schemele alăturate permite obţinerea a două circuite de cuplă  longitudinală?",
+    "reason": "Întrebarea face referire la scheme/imagini, dar variantele nu sunt incluse în fișier."
+  },
+  {
+    "subject": "electrotehnica",
+    "row": 26,
+    "question": "Care dintre schemele alăturate permite obţinerea a două circuite de cuplă  transversală?",
+    "reason": "Întrebarea face referire la scheme/imagini, dar variantele nu sunt incluse în fișier."
+  },
+  {
+    "subject": "electrotehnica",
+    "row": 27,
+    "question": "Care dintre schemele alăturate permite obţinerea a două circuite de cuplă diagonală  (cruce ) ?",
+    "reason": "Întrebarea face referire la scheme/imagini, dar variantele nu sunt incluse în fișier."
+  }
+]
