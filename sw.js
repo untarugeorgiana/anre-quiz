@@ -1,4 +1,4 @@
-const CACHE_NAME = "anre-quiz-v3";
+const CACHE_NAME = "anre-quiz-v6";
 const CORE = ["./", "./index.html", "./questions.js", "./manifest.webmanifest", "./icon.svg", "./icon-180.png"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE)).then(() => self.skipWaiting()));

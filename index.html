@@ -29,9 +29,9 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
 
 .custom-quiz{margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 .custom-quiz label{display:block;font-size:14px;font-weight:650;margin-bottom:9px}
-.custom-quiz-row{display:flex;gap:8px}
+.custom-quiz-row{display:flex;flex-direction:column;gap:10px}.custom-quiz-row input{width:100%;box-sizing:border-box}.custom-quiz-row button{width:100%;min-height:46px;cursor:pointer}
 .custom-quiz-row input{min-width:0;width:110px;flex:1;border:1px solid var(--line);border-radius:11px;padding:12px;font:inherit;color:var(--ink);background:#fff}
-.custom-quiz-row button{border:0;border-radius:11px;padding:12px 14px;background:var(--accent);color:#fff;font:inherit;font-weight:650}
+.custom-quiz-row button{border:0;border-radius:11px;padding:12px 14px;background:var(--green);color:#fff;font:inherit;font-weight:750}
 .custom-quiz-hint{font-size:12px;color:var(--muted);margin:8px 0 0}
 </style>
 </head>
@@ -103,7 +103,7 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
   ];
   const $ = id => document.getElementById(id);
   const validQuestions = allQuestions.filter(q => Array.isArray(q.options) && q.options.length >= 2 && Array.isArray(q.correct) && q.correct.length > 0 && q.keyStatus === "ok");
-  let session = [], index = 0, selected = [], answered = false, sessionResults = [], modeTitle = "";
+  let session = [], index = 0, selected = [], answered = false, sessionResults = [], modeTitle = "", multiSelectMode = false;
   let progress = loadProgress();
   function loadProgress(){ try{return JSON.parse(localStorage.getItem("anreQuizProgress")||'{"answered":{},"wrong":[],"sessions":0}')}catch(e){return {answered:{},wrong:[],sessions:0}} }
   function saveProgress(){try{localStorage.setItem("anreQuizProgress",JSON.stringify(progress))}catch(e){}}
@@ -115,21 +115,21 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
     $("subjectList").innerHTML=subjects.map(s=>{const count=validQuestions.filter(q=>q.subject===s.id).length;return `<button type="button" class="subject-card" data-subject="${s.id}"><span class="subject-icon">${s.icon}</span><span class="subject-info"><strong>${s.title}</strong><small>${count} întrebări disponibile · ${escapeHtml(s.desc)}</small></span><span class="arrow">›</span></button>`}).join("");
     document.querySelectorAll("[data-subject]").forEach(b=>b.addEventListener("click",()=>startQuiz(validQuestions.filter(q=>q.subject===b.dataset.subject),subjects.find(s=>s.id===b.dataset.subject).short,0)));
   }
-  function startQuiz(pool,title,limit){
+  function startQuiz(pool,title,limit,examStyleMultiSelect=false){
     if(!pool.length){alert("Nu există întrebări disponibile pentru această selecție.");return}
-    modeTitle=title;session=shuffle(pool);if(limit>0)session=session.slice(0,limit);index=0;sessionResults=[];renderQuestion();show("quizView");
+    modeTitle=title;multiSelectMode=examStyleMultiSelect;session=shuffle(pool);if(limit>0)session=session.slice(0,limit);index=0;sessionResults=[];renderQuestion();show("quizView");
   }
   function renderQuestion(){
     const q=session[index];selected=[];answered=false;
-    $("modePill").textContent=modeTitle.toUpperCase()+" · "+(q.correct.length>1?"RĂSPUNS MULTIPLU":q.correct.length===1?"RĂSPUNS SIMPLU":"TIP NECONFIRMAT");$("progressLabel").textContent=`Întrebarea ${index+1} din ${session.length}`;$("scoreLabel").textContent=`Scor: ${sessionResults.filter(r=>r.correct).length}`;$("progressFill").style.width=(index/session.length*100)+"%";
+    $("modePill").textContent=multiSelectMode?modeTitle.toUpperCase():modeTitle.toUpperCase()+" · "+(q.correct.length>1?"RĂSPUNS MULTIPLU":q.correct.length===1?"RĂSPUNS SIMPLU":"TIP NECONFIRMAT");$("progressLabel").textContent=`Întrebarea ${index+1} din ${session.length}`;$("scoreLabel").textContent=`Scor: ${sessionResults.filter(r=>r.correct).length}`;$("progressFill").style.width=(index/session.length*100)+"%";
     $("qNumber").textContent=`ÎNTREBAREA ${String(index+1).padStart(2,"0")}`;$("questionText").textContent=q.question;
-    $("multiNote").classList.toggle("hidden",q.correct.length<2);
+    $("multiNote").classList.toggle("hidden",multiSelectMode||q.correct.length<2);
     $("optionsList").innerHTML=q.options.map((opt,i)=>`<button type="button" class="option" data-option="${i}"><span class="letter">${String.fromCharCode(65+i)}</span><span>${escapeHtml(opt)}</span></button>`).join("");
     document.querySelectorAll("[data-option]").forEach(b=>b.addEventListener("click",()=>chooseOption(Number(b.dataset.option))));
     $("feedback").className="feedback hidden";$("feedback").innerHTML="";$("reference").classList.toggle("hidden",!q.reference);$("reference").textContent=q.reference?"Referință din fișier: "+q.reference:"";
     $("nextBtn").disabled=true;$("nextBtn").textContent="Verifică răspunsul";$("skipBtn").disabled=false;
   }
-  function chooseOption(i){if(answered)return;const q=session[index];if(q.correct.length>1){selected=selected.includes(i)?selected.filter(n=>n!==i):[...selected,i]}else selected=[i];document.querySelectorAll("[data-option]").forEach(b=>b.classList.toggle("selected",selected.includes(Number(b.dataset.option))));$("nextBtn").disabled=!selected.length}
+  function chooseOption(i){if(answered)return;const q=session[index];if(multiSelectMode||q.correct.length>1){selected=selected.includes(i)?selected.filter(n=>n!==i):[...selected,i]}else selected=[i];document.querySelectorAll("[data-option]").forEach(b=>b.classList.toggle("selected",selected.includes(Number(b.dataset.option))));$("nextBtn").disabled=!selected.length}
   function submitAnswer(){
     if(answered)return;const q=session[index];if(!selected.length)return;
     answered=true;const correct=q.correct.length>0&&selected.length===q.correct.length&&selected.every(i=>q.correct.includes(i));
@@ -144,13 +144,13 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
   function showResults(){
     progress.sessions=(progress.sessions||0)+1;saveProgress();const total=sessionResults.length,correct=sessionResults.filter(r=>r.correct).length,skipped=sessionResults.filter(r=>r.skipped).length,wrong=total-correct-skipped,percent=total?Math.round(correct/total*100):0;
     $("resultTitle").textContent=percent>=80?"Foarte bine!":percent>=60?"Ești pe drumul bun":"Mai exersează puțin";$("resultSubtitle").textContent=`Ai terminat „${modeTitle}”. Repetiția te ajută să fixezi informația.`;$("resultPercent").textContent=percent+"%";$("resultCorrect").textContent=correct;$("resultWrong").textContent=wrong;$("resultSkipped").textContent=skipped;
-    const retry=sessionResults.filter(r=>!r.correct).map(r=>r.q);$("retryWrongBtn").classList.toggle("hidden",retry.length===0);$("retryWrongBtn").onclick=()=>startQuiz(retry,modeTitle+" · repetare",0);
+    const retry=sessionResults.filter(r=>!r.correct).map(r=>r.q);$("retryWrongBtn").classList.toggle("hidden",retry.length===0);$("retryWrongBtn").onclick=()=>startQuiz(retry,modeTitle+" · repetare",0,multiSelectMode);
     $("reviewList").innerHTML=sessionResults.map((r,i)=>`<div class="review-item"><strong>${r.correct?"✓":r.skipped?"↷":"✕"} ${i+1}. ${escapeHtml(r.q.question)}</strong><small>${r.skipped?"Întrebare sărită":r.correct?"Ai răspuns corect":"Răspuns corect: "+r.q.correct.map(n=>String.fromCharCode(65+n)+". "+r.q.options[n]).map(escapeHtml).join(" / ")}</small></div>`).join("");
     $("progressFill").style.width="100%";show("resultView");
   }
   $("nextBtn").addEventListener("click",()=>answered?advance():submitAnswer());$("skipBtn").addEventListener("click",skipQuestion);$("backBtn").addEventListener("click",()=>{if(confirm("Vrei să închei sesiunea și să revii la materii?"))show("homeView")});$("homeBtn").addEventListener("click",()=>show("homeView"));$("resultHomeBtn").addEventListener("click",()=>show("homeView"));
-  document.querySelectorAll("[data-quick]").forEach(b=>b.addEventListener("click",()=>startQuiz(validQuestions,"Chestionar mixt",Number(b.dataset.quick))));
-  $("customQuizBtn").addEventListener("click",()=>{const n=Number($("customQuestionCount").value);if(!Number.isInteger(n)||n<1){alert("Introdu un număr întreg de cel puțin 1.");$("customQuestionCount").focus();return}startQuiz(validQuestions,"Chestionar mixt",Math.min(n,validQuestions.length))});
+  document.querySelectorAll("[data-quick]").forEach(b=>b.addEventListener("click",()=>startQuiz(validQuestions,"Chestionar mixt",Number(b.dataset.quick),true)));
+  $("customQuizBtn").addEventListener("click",()=>{const n=Number($("customQuestionCount").value);if(!Number.isInteger(n)||n<1){alert("Introdu un număr întreg de cel puțin 1.");$("customQuestionCount").focus();return}startQuiz(validQuestions,"Chestionar mixt",Math.min(n,validQuestions.length),true)});
   $("customQuestionCount").addEventListener("keydown",e=>{if(e.key==="Enter")$("customQuizBtn").click()});
   $("wrongBtn").addEventListener("click",()=>{const ids=new Set(progress.wrong||[]);startQuiz(validQuestions.filter(q=>ids.has(q.id)),"Repetarea greșelilor",0)});
   renderSubjects();updateHomeStats();
