@@ -9,3 +9,6 @@ Progresul se salvează local și nu se sincronizează automat între dispozitive
 
 
 În chestionarele de antrenament rapid, toate întrebările permit selectarea uneia sau mai multor variante, fără eticheta „Răspuns simplu/multiplu”. În zona de învățare pe materii, tipul întrebării rămâne afișat ca înainte.
+
+
+Scheme electrotehnice: imaginile furnizate sunt incluse pentru întrebările 8, 25–27 (variante vizuale), 31, 34, 40–41, 169–170 și 174–175. Întrebările 25–27 sunt marcate cu cheie neconfirmată: schemele sunt afișate, dar aplicația nu pretinde că știe varianta corectă până la validarea răspunsului.
