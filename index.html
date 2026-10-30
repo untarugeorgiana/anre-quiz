@@ -40,7 +40,7 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
 #pullRefreshIndicator .pull-spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;}
 #pullRefreshIndicator.refreshing .pull-spinner{animation:pullSpin .7s linear infinite}
 @keyframes pullSpin{to{transform:rotate(360deg)}}
-@media(hover:none) and (pointer:coarse){body{overscroll-behavior-y:contain}}
+@media(hover:none) and (pointer:coarse){html,body{overscroll-behavior-y:none;touch-action:pan-x pan-y}}
 </style>
 </head>
 <body>
@@ -185,46 +185,63 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
   $("customQuizBtn").addEventListener("click",()=>{const n=Number($("customQuestionCount").value);if(!Number.isInteger(n)||n<1){alert("Introdu un număr întreg de cel puțin 1.");$("customQuestionCount").focus();return}startQuiz(validQuestions,"Chestionar mixt",Math.min(n,validQuestions.length),true)});
   $("customQuestionCount").addEventListener("keydown",e=>{if(e.key==="Enter")$("customQuizBtn").click()});
   $("wrongBtn").addEventListener("click",()=>{const ids=new Set(progress.wrong||[]);startQuiz(validQuestions.filter(q=>ids.has(q.id)),"Repetarea greșelilor",0)});
-  // Pull-to-refresh: activ doar pe dispozitive mobile/tactile și când pagina este la început.
+  // Pull-to-refresh: disponibil pe dispozitive tactile, doar când pagina este în partea de sus.
   const pullIndicator = $("pullRefreshIndicator");
   const pullText = $("pullRefreshText");
   const isTouchMobile = matchMedia("(hover: none) and (pointer: coarse)").matches;
   let pullStartY = 0, pullDistance = 0, pulling = false, refreshing = false;
   if (isTouchMobile) {
     document.addEventListener("touchstart", e => {
-      if (refreshing || e.touches.length !== 1 || window.scrollY > 0) return;
+      if (refreshing || e.touches.length !== 1 || window.scrollY > 1) return;
       pullStartY = e.touches[0].clientY;
       pullDistance = 0;
-      pulling = pullStartY < 90;
+      // Nu limităm punctul de pornire la primii 90px: pe mobil gestul poate începe oriunde pe ecran.
+      pulling = true;
     }, {passive:true});
+
     document.addEventListener("touchmove", e => {
       if (!pulling || refreshing || e.touches.length !== 1) return;
+      // Dacă utilizatorul a început să deruleze în jos, anulăm gestul.
+      if (window.scrollY > 1) { pulling = false; return; }
       const delta = e.touches[0].clientY - pullStartY;
-      if (delta <= 0) { pullDistance = 0; pullIndicator.classList.remove("visible"); return; }
-      pullDistance = Math.min(delta * 0.55, 105);
-      pullIndicator.style.transform = `translate(-50%, ${Math.max(-64, -64 + pullDistance)}px)`;
+      if (delta <= 0) {
+        pullDistance = 0;
+        pullIndicator.classList.remove("visible");
+        pullIndicator.style.transform = "translate(-50%,-64px)";
+        return;
+      }
+      pullDistance = Math.min(delta * 0.7, 88);
+      const offset = Math.max(-64, -64 + pullDistance);
+      pullIndicator.style.transform = `translate(-50%, ${offset}px)`;
       pullIndicator.classList.add("visible");
-      pullText.textContent = pullDistance >= 78 ? "Eliberează pentru reîmprospătare" : "Trage în jos pentru reîmprospătare";
-      if (delta > 8) e.preventDefault();
+      pullText.textContent = pullDistance >= 72 ? "Eliberează pentru reîmprospătare" : "Trage în jos pentru reîmprospătare";
+      if (delta > 6) e.preventDefault();
     }, {passive:false});
+
     document.addEventListener("touchend", () => {
       if (!pulling) return;
       pulling = false;
-      if (pullDistance >= 78 && !refreshing) {
+      if (pullDistance >= 72 && !refreshing) {
         refreshing = true;
-        pullIndicator.classList.add("refreshing","visible");
+        pullIndicator.style.transform = "translate(-50%, 8px)";
+        pullIndicator.classList.add("visible", "refreshing");
         pullText.textContent = "Se reîmprospătează…";
-        setTimeout(() => window.location.reload(), 180);
+        // Păstrăm indicatorul vizibil suficient timp pentru ca spinnerul să poată fi observat.
+        setTimeout(() => window.location.reload(), 850);
       } else {
-        pullIndicator.classList.remove("visible");
+        pullIndicator.classList.remove("visible", "refreshing");
         pullIndicator.style.transform = "translate(-50%,-64px)";
       }
       pullDistance = 0;
     }, {passive:true});
+
     document.addEventListener("touchcancel", () => {
-      pulling = false; pullDistance = 0;
-      pullIndicator.classList.remove("visible");
-      pullIndicator.style.transform = "translate(-50%,-64px)";
+      pulling = false;
+      pullDistance = 0;
+      if (!refreshing) {
+        pullIndicator.classList.remove("visible", "refreshing");
+        pullIndicator.style.transform = "translate(-50%,-64px)";
+      }
     }, {passive:true});
   }
   renderSubjects();updateHomeStats();
