@@ -110,15 +110,37 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
   function saveProgress(){try{localStorage.setItem("anreQuizProgress",JSON.stringify(progress))}catch(e){}}
   function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
   function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-  function show(view){["homeView","quizView","resultView"].forEach(id=>$(id).classList.toggle("hidden",id!==view));$("homeBtn").classList.toggle("hidden",view==="homeView");window.scrollTo({top:0,behavior:"smooth"});updateHomeStats()}
+  function show(view){if(view==="homeView")activeSubjectId=null;["homeView","quizView","resultView"].forEach(id=>$(id).classList.toggle("hidden",id!==view));$("homeBtn").classList.toggle("hidden",view==="homeView");window.scrollTo({top:0,behavior:"smooth"});updateHomeStats()}
   function updateHomeStats(){const entries=Object.values(progress.answered||{});$("answeredCount").textContent=entries.length;$("accuracyCount").textContent=entries.length?Math.round(entries.filter(x=>x).length/entries.length*100)+"%":"—";$("totalCount").textContent=allQuestions.length}
   function renderSubjects(){
-    $("subjectList").innerHTML=subjects.map(s=>{const count=validQuestions.filter(q=>q.subject===s.id).length;return `<button type="button" class="subject-card" data-subject="${s.id}"><span class="subject-icon">${s.icon}</span><span class="subject-info"><strong>${s.title}</strong><small>${count} întrebări disponibile · ${escapeHtml(s.desc)}</small></span><span class="arrow">›</span></button>`}).join("");
-    document.querySelectorAll("[data-subject]").forEach(b=>b.addEventListener("click",()=>startQuiz(validQuestions.filter(q=>q.subject===b.dataset.subject),subjects.find(s=>s.id===b.dataset.subject).short,0)));
+    $("subjectList").innerHTML=subjects.map(s=>{const count=validQuestions.filter(q=>q.subject===s.id).length;const state=progress.subjectProgress?.[s.id];const done=state&&Array.isArray(state.order)&&state.order.length===count?Math.min(state.cursor,count):0;const percent=count?Math.round(done/count*100):0;return `<button type="button" class="subject-card" data-subject="${s.id}"><span class="subject-icon">${s.icon}</span><span class="subject-info"><strong>${s.title}</strong><small>${count} întrebări · ${escapeHtml(s.desc)} · Progres: ${percent}%</small></span><span class="arrow">›</span></button>`}).join("");
+    document.querySelectorAll("[data-subject]").forEach(b=>b.addEventListener("click",()=>startSubjectQuiz(b.dataset.subject)));
   }
-  function startQuiz(pool,title,limit,examStyleMultiSelect=false){
+  function startSubjectQuiz(subjectId){
+    const pool=validQuestions.filter(q=>q.subject===subjectId);
+    const subject=subjects.find(s=>s.id===subjectId);
+    let state=progress.subjectProgress?.[subjectId];
+    if(!state||!Array.isArray(state.order)||state.order.length!==pool.length||state.cursor>=pool.length){
+      state={order:shuffle(pool.map(q=>q.id)),cursor:0};
+      progress.subjectProgress=progress.subjectProgress||{};
+      progress.subjectProgress[subjectId]=state;
+      saveProgress();
+    }
+    const byId=new Map(pool.map(q=>[q.id,q]));
+    const remaining=state.order.slice(state.cursor).map(id=>byId.get(id)).filter(Boolean);
+    startQuiz(remaining,subject.short,0,false,subjectId);
+  }
+  function saveSubjectPosition(){
+    if(!activeSubjectId)return;
+    const state=progress.subjectProgress?.[activeSubjectId];
+    if(!state)return;
+    state.cursor=Math.min(state.cursor+1,state.order.length);
+    saveProgress();
+  }
+  let activeSubjectId=null;
+  function startQuiz(pool,title,limit,examStyleMultiSelect=false,subjectId=null){
     if(!pool.length){alert("Nu există întrebări disponibile pentru această selecție.");return}
-    modeTitle=title;multiSelectMode=examStyleMultiSelect;session=shuffle(pool);if(limit>0)session=session.slice(0,limit);index=0;sessionResults=[];renderQuestion();show("quizView");
+    modeTitle=title;multiSelectMode=examStyleMultiSelect;activeSubjectId=subjectId;session=subjectId?pool:shuffle(pool);if(limit>0)session=session.slice(0,limit);index=0;sessionResults=[];renderQuestion();show("quizView");
   }
   function renderQuestion(){
     const q=session[index];selected=[];answered=false;
@@ -137,10 +159,10 @@ button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tra
     document.querySelectorAll("[data-option]").forEach(b=>{const i=Number(b.dataset.option);b.disabled=true;b.classList.remove("selected");if(q.correct.includes(i))b.classList.add("correct");else if(selected.includes(i))b.classList.add("wrong")});
     const fb=$("feedback");fb.className="feedback "+(q.correct.length===0?"bad":correct?"good":"bad");fb.innerHTML=q.correct.length===0?`<strong>Cheie neconfirmată</strong>Fișierul sursă nu indică un răspuns corect verificabil.`:`<strong>${correct?"✓ Răspuns corect":"✕ Răspuns incorect"}</strong>${correct?"Bine! Continuă în același ritm.":"Răspunsul corect este "+q.correct.map(i=>String.fromCharCode(65+i)).join(", ")+". Revizuiește variantele evidențiate."}`;
     $("nextBtn").disabled=false;$("nextBtn").textContent=index===session.length-1?"Vezi rezultatele":"Următoarea întrebare";$("skipBtn").disabled=true;
-    sessionResults.push({q,correct,selected:[...selected],skipped:false});progress.answered[q.id]=correct;
+    sessionResults.push({q,correct,selected:[...selected],skipped:false});progress.answered[q.id]=correct;if(activeSubjectId)saveSubjectPosition();
     const wrongSet=new Set(progress.wrong||[]);if(correct)wrongSet.delete(q.id);else wrongSet.add(q.id);progress.wrong=[...wrongSet];saveProgress();
   }
-  function skipQuestion(){if(answered)return;const q=session[index];sessionResults.push({q,correct:false,selected:[],skipped:true});const wrongSet=new Set(progress.wrong||[]);wrongSet.add(q.id);progress.wrong=[...wrongSet];saveProgress();advance()}
+  function skipQuestion(){if(answered)return;const q=session[index];sessionResults.push({q,correct:false,selected:[],skipped:true});if(activeSubjectId)saveSubjectPosition();const wrongSet=new Set(progress.wrong||[]);wrongSet.add(q.id);progress.wrong=[...wrongSet];saveProgress();advance()}
   function advance(){if(index<session.length-1){index++;renderQuestion();$("progressFill").style.width=(index/session.length*100)+"%"}else showResults()}
   function showResults(){
     progress.sessions=(progress.sessions||0)+1;saveProgress();const total=sessionResults.length,correct=sessionResults.filter(r=>r.correct).length,skipped=sessionResults.filter(r=>r.skipped).length,wrong=total-correct-skipped,percent=total?Math.round(correct/total*100):0;
